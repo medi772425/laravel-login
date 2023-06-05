@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginFormRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
@@ -17,11 +18,26 @@ class AuthController extends Controller
     }
 
     /**
+     * 認証はスターターキットを使わずに、Laravelの認証クラスを用いる
+     *
      * @param App\Http\Requests\LoginFormRequest $request
      */
     public function login(LoginFormRequest $request)
     {
-        dd($request);
-        // return redirect()->route();
+        $credentials = $request->only('email', 'password');
+
+        if (Auth::attempt($credentials)) {
+            $request->session()->regenerate();
+
+            // with で一時的なセッションを返している。リロードすると消える。フラッシュメッセージ
+            return redirect()->route('home')->with([
+                'login_success' => 'ログイン成功しました！'
+            ]);
+        }
+
+        // 前のページへ戻す。withErrorsでエラーをsessionで返す
+        return back()->withErrors([
+            'login_error' => 'メールアドレスかパスワードが間違っています。'
+        ]);
     }
 }

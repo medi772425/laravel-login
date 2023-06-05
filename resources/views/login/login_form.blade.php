@@ -23,6 +23,11 @@
                         <li>{{ $error }}</li>
                     @endforeach
                 </ul>
+                @if (session('login_success'))
+                    <li class="alert alert-danger">
+                        {{ session('login_success') }}
+                    </li>
+                @endif
             </div>
         @endif
         <label for="inputEmail" class="sr-only">Email address</label>
