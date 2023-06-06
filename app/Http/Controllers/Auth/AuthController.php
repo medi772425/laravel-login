@@ -40,4 +40,23 @@ class AuthController extends Controller
             'login_error' => 'メールアドレスかパスワードが間違っています。'
         ]);
     }
+
+
+    /**
+     * ユーザーをアプリケーションからログアウトさせる
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function logout(Request $request)
+    {
+        Auth::logout(); // ユーザーのセッションを削除
+
+        $request->session()->invalidate();  // 全セッション削除
+
+        $request->session()->regenerateToken();  // セッション再生成
+
+        // with で一時的なセッションを返している。リロードすると消える。フラッシュメッセージ
+        return redirect()->route('login.show')->with("logout", "ログアウトしました");
+    }
 }

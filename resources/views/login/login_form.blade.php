@@ -17,19 +17,35 @@
         @csrf
         <h1 class="h3 mb-3 font-weight-normal">ログインフォーム</h1>
         @if ($errors->any())
-            <div class="alert alert-danger">
-                <ul>
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-                @if (session('login_success'))
-                    <li class="alert alert-danger">
-                        {{ session('login_success') }}
-                    </li>
-                @endif
-            </div>
+            <ul class="alert alert-danger">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
         @endif
+
+        {{-- コンポーネント化する前 --}}
+        {{-- @if (session('login_success'))
+            <ul>
+                <li class="alert alert-danger">
+                    {{ session('login_success') }}
+                </li>
+            </ul>
+        @endif
+
+        @if (session('logout'))
+            <ul>
+                <li class="alert alert-success">
+                    {{ session('logout') }}
+                </li>
+            </ul>
+        @endif --}}
+
+        {{-- コンポーネント呼び出し app/View/Components/Alert.php のコンストラクタへ値を渡している。 --}}
+        <x-alert type="danger" :session="session('login_success')" />
+        <x-alert type="success" :session="session('logout')" />
+
+
         <label for="inputEmail" class="sr-only">Email address</label>
         <input type="email" id="inputEmail" name="email" class="form-control" placeholder="Email address" autofocus>
         <label for="inputPassword" class="sr-only">Password</label>
