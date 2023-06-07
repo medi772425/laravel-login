@@ -10,6 +10,14 @@ use App\Models\User;
 
 class AuthController extends Controller
 {
+    public $user;
+
+    public function __construct(User $user)
+    {
+        // IoCコンテナ new User()　とせずに、Userを使う方法
+        $this->user = $user;
+    }
+
     /**
      * @return view
      */
@@ -28,11 +36,10 @@ class AuthController extends Controller
         $credentials = $request->only('email', 'password');
 
         // アカウントがロックされていたら弾く
-        $user = User::where('email', "=", $credentials["email"])->first();
+        $user = $this->user->getUserByEmail($credentials["email"]);
 
         if (!is_null($user)) {
-
-            if ($user->locked_flg === 1) {
+            if ($this->user->isAccountLocked($user)) {
                 // 前のページへ戻す。withErrorsでエラーをsessionで返す
                 return back()->withErrors([
                     'login_error' => 'アカウントがロックされています。'
@@ -43,10 +50,7 @@ class AuthController extends Controller
                 $request->session()->regenerate();
 
                 // ログインが成功したら、エラーカウントを0にする
-                if ($user->error_count > 0) {
-                    $user->error_count = 0;
-                    $user->save();
-                }
+                $this->user->resetErrorCount($user);
 
                 // with で一時的なセッションを返している。リロードすると消える。フラッシュメッセージ
                 return redirect()->route('home')->with([
@@ -56,12 +60,10 @@ class AuthController extends Controller
         }
 
         // ログイン失敗したら、エラーカウントを1増やす
-        $user->error_count++;
+        $user->error_count = $this->user->addErrorCount($user->error_count);
 
-        if ($user->error_count > 5) {
-            $user->locked_flg = 1;
-            $user->save();
-
+        // エラーカウントが6以上の時はロックフラグをオンにする
+        if ($this->user->lockAccount($user)) {
             // 前のページへ戻す。withErrorsでエラーをsessionで返す
             return back()->withErrors([
                 'login_error' => 'アカウントがロックされました。'
