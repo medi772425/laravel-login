@@ -6,9 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginFormRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 
 class AuthController extends Controller
 {
+    public $user;
+
+    public function __construct(User $user)
+    {
+        // IoCコンテナ new User()　とせずに、Userを使う方法
+        $this->user = $user;
+    }
+
     /**
      * @return view
      */
@@ -26,14 +35,42 @@ class AuthController extends Controller
     {
         $credentials = $request->only('email', 'password');
 
-        if (Auth::attempt($credentials)) {
-            $request->session()->regenerate();
+        // アカウントがロックされていたら弾く
+        $user = $this->user->getUserByEmail($credentials["email"]);
 
-            // with で一時的なセッションを返している。リロードすると消える。フラッシュメッセージ
-            return redirect()->route('home')->with([
-                'login_success' => 'ログイン成功しました！'
+        if (!is_null($user)) {
+            if ($this->user->isAccountLocked($user)) {
+                // 前のページへ戻す。withErrorsでエラーをsessionで返す
+                return back()->withErrors([
+                    'login_error' => 'アカウントがロックされています。'
+                ]);
+            }
+
+            if (Auth::attempt($credentials)) {
+                $request->session()->regenerate();
+
+                // ログインが成功したら、エラーカウントを0にする
+                $this->user->resetErrorCount($user);
+
+                // with で一時的なセッションを返している。リロードすると消える。フラッシュメッセージ
+                return redirect()->route('home')->with([
+                    'login_success' => 'ログイン成功しました！'
+                ]);
+            }
+        }
+
+        // ログイン失敗したら、エラーカウントを1増やす
+        $user->error_count = $this->user->addErrorCount($user->error_count);
+
+        // エラーカウントが6以上の時はロックフラグをオンにする
+        if ($this->user->lockAccount($user)) {
+            // 前のページへ戻す。withErrorsでエラーをsessionで返す
+            return back()->withErrors([
+                'login_error' => 'アカウントがロックされました。'
             ]);
         }
+
+        $user->save();
 
         // 前のページへ戻す。withErrorsでエラーをsessionで返す
         return back()->withErrors([
