@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginFormRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 
 class AuthController extends Controller
 {
@@ -26,14 +27,48 @@ class AuthController extends Controller
     {
         $credentials = $request->only('email', 'password');
 
-        if (Auth::attempt($credentials)) {
-            $request->session()->regenerate();
+        // アカウントがロックされていたら弾く
+        $user = User::where('email', "=", $credentials["email"])->first();
 
-            // with で一時的なセッションを返している。リロードすると消える。フラッシュメッセージ
-            return redirect()->route('home')->with([
-                'login_success' => 'ログイン成功しました！'
+        if (!is_null($user)) {
+
+            if ($user->locked_flg === 1) {
+                // 前のページへ戻す。withErrorsでエラーをsessionで返す
+                return back()->withErrors([
+                    'login_error' => 'アカウントがロックされています。'
+                ]);
+            }
+
+            if (Auth::attempt($credentials)) {
+                $request->session()->regenerate();
+
+                // ログインが成功したら、エラーカウントを0にする
+                if ($user->error_count > 0) {
+                    $user->error_count = 0;
+                    $user->save();
+                }
+
+                // with で一時的なセッションを返している。リロードすると消える。フラッシュメッセージ
+                return redirect()->route('home')->with([
+                    'login_success' => 'ログイン成功しました！'
+                ]);
+            }
+        }
+
+        // ログイン失敗したら、エラーカウントを1増やす
+        $user->error_count++;
+
+        if ($user->error_count > 5) {
+            $user->locked_flg = 1;
+            $user->save();
+
+            // 前のページへ戻す。withErrorsでエラーをsessionで返す
+            return back()->withErrors([
+                'login_error' => 'アカウントがロックされました。'
             ]);
         }
+
+        $user->save();
 
         // 前のページへ戻す。withErrorsでエラーをsessionで返す
         return back()->withErrors([
